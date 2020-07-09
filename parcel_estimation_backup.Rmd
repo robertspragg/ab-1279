@@ -1,0 +1,123 @@
+---
+title: "Parcel Analysis"
+author: "Robert Spraggh"
+date: "7/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(leaflet)
+if (!require(leaflet.mapboxgl)) {
+  devtools::install_github("rstudio/leaflet.mapboxgl")
+  library(leaflet.mapboxgl)
+}
+library(sf)
+```
+
+
+```{r}
+path <-
+  "/Users/robert/ab-1279/Alameda/Parcels-shp/"
+```
+
+```{r}
+alameda_county_parcel_data <-
+  read_sf(path)
+```
+
+Constants
+```{r}
+QUARTER_ACRE <-
+  10890 # SQUARE FEET
+HALF_ACRE <-
+  21780 # SQUARE FEET
+NONZERO_PARCEL_SIZE_COUNT_UNIQUE_APN_SORT <-
+  97474
+
+access_token <-
+  "pk.eyJ1Ijoicm9iZXJ0c3ByYWdnIiwiYSI6ImNqd2NtNjh0YzBiNzMzenBsNDl3cXQ1em8ifQ.1d2QhIjr8R8ZUlzjwcYx9w"
+
+style_oakland_map <-
+  "mapbox://styles/robertspragg/ckce9o0fi09vb1ipdrpo41iq8"
+```
+
+
+
+```{r}
+parcels_no_geometry <-
+  alameda_county_parcel_data %>% 
+  st_drop_geometry()
+```
+
+```{r}
+parcels_geom_only <-
+  alameda_county_parcel_data %>% 
+  select(geometry, APN_SORT, OBJECTID, LotSize) %>% 
+  st_transform(crs = 4326)
+```
+
+
+
+```{r}
+oakland_parcels <-
+  parcels_no_geometry %>% 
+  filter(SitusCity == "OAKLAND")
+```
+
+Number of Parcels greater than Quarter Acre (10890 square feet)
+
+## 10,723 Parcels Greater Than Quarter Acre
+```{r}
+oakland_parcels %>% 
+  group_by(APN_SORT) %>% 
+  slice(1) %>%  # 98,294
+  filter(LotSize > 0) %>% # 97,474
+  filter(LotSize > QUARTER_ACRE)
+
+```
+
+## 4,245 Parcels Greater Than Half Acre
+```{r}
+oakland_parcels_half_acre <-
+  oakland_parcels %>% 
+  group_by(APN_SORT) %>% 
+  slice(1) %>%  # 98,294
+  filter(LotSize > 0) %>% # 97,474
+  filter(LotSize > HALF_ACRE) %>% 
+  select(APN_SORT, LotSize) %>% 
+  inner_join(parcels_geom_only)
+
+oakland_parcels_quarter_acre <-
+  oakland_parcels %>% 
+  group_by(APN_SORT) %>% 
+  slice(1) %>%  # 98,294
+  filter(LotSize > 0) %>% # 97,474
+  filter(LotSize > QUARTER_ACRE) %>% 
+  select(APN_SORT, LotSize) %>% 
+  inner_join(parcels_geom_only)
+
+```
+
+```{r}
+parcel_list_half_acre <-
+  oakland_parcels_half_acre %>% select(APN_SORT) %>% pull
+
+parcel_list_quarter_acre <-
+  oakland_parcels_quarter_acre %>% select(APN_SORT) %>% pull
+```
+
+
+```{r}
+leaflet(parcels_geom_only %>% filter(APN_SORT %in% parcel_list_half_acre)) %>% 
+    addMapboxGL(
+    accessToken = access_token,
+    style = style_oakland_map
+  ) %>% 
+  addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
+    opacity = 1.0, fillOpacity = 0.5,
+    fillColor = ~colorQuantile("YlOrRd", LotSize)(LotSize),
+    highlightOptions = highlightOptions(color = "white", weight = 2,
+      bringToFront = TRUE))
+```

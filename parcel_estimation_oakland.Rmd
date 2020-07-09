@@ -122,6 +122,7 @@ leaflet(parcels_geom_only %>% filter(APN_SORT %in% parcel_list_half_acre)) %>%
   addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
     opacity = 1.0, fillOpacity = 0.5,
     fillColor = ~colorQuantile("YlOrRd", LotSize)(LotSize),
+    label = ~SitusAddre,
     highlightOptions = highlightOptions(color = "white", weight = 2,
       bringToFront = TRUE))
 ```

@@ -1,6 +1,6 @@
 ---
-title: "Parcel Analysis"
-author: "Robert Spraggh"
+title: "Oakland Parcel Analysis"
+author: "Robert Spragg"
 date: "7/3/2020"
 output: html_document
 ---
@@ -43,72 +43,76 @@ style_oakland_map <-
   "mapbox://styles/robertspragg/ckce9o0fi09vb1ipdrpo41iq8"
 ```
 
-
-
-```{r}
-parcels_no_geometry <-
-  alameda_county_parcel_data %>% 
-  st_drop_geometry()
-```
-
+Load the Alameda County Parcel shapefile, select metadata of interest, and transform coordinates.
 ```{r}
 parcels_geom_only <-
   alameda_county_parcel_data %>% 
-  select(geometry, APN_SORT, OBJECTID, LotSize) %>% 
+  select(geometry, APN_SORT, OBJECTID, LotSize, SitusAddre) %>% 
   st_transform(crs = 4326)
 ```
 
 
-
+To find the Oakland parcels of interest, first load the Alameda County shapefile, remove the geometry to speed things up, and filter for all Oakland parcels.
 ```{r}
+parcels_no_geometry <-
+  alameda_county_parcel_data %>% 
+  st_drop_geometry()
+
 oakland_parcels <-
   parcels_no_geometry %>% 
   filter(SitusCity == "OAKLAND")
 ```
 
-Number of Parcels greater than Quarter Acre (10890 square feet)
 
-## 10,723 Parcels Greater Than Quarter Acre
+
+Next, let's find the number of Oakland parcels larger than a quarter acre (10890 square feet)
 ```{r}
 oakland_parcels %>% 
   group_by(APN_SORT) %>% 
   slice(1) %>%  # 98,294
   filter(LotSize > 0) %>% # 97,474
-  filter(LotSize > QUARTER_ACRE)
+  filter(LotSize > QUARTER_ACRE) %>% 
+  nrow()
 
 ```
 
-## 4,245 Parcels Greater Than Half Acre
+Let's repeat this for parcels greater than half an acre.
 ```{r}
-oakland_parcels_half_acre <-
+oakland_parcels %>% 
+  group_by(APN_SORT) %>% 
+  slice(1) %>%  # 98,294
+  filter(LotSize > 0) %>% # 97,474
+  filter(LotSize > HALF_ACRE) %>% 
+  nrow()
+```
+
+There are 10,723 parcels greater than a quarter acre, and 4,245 greater than a quarter acre.
+Now, let's save the lists of these parcels.
+```{r}
+parcel_list_half_acre <-
   oakland_parcels %>% 
   group_by(APN_SORT) %>% 
   slice(1) %>%  # 98,294
   filter(LotSize > 0) %>% # 97,474
   filter(LotSize > HALF_ACRE) %>% 
   select(APN_SORT, LotSize) %>% 
-  inner_join(parcels_geom_only)
+  select(APN_SORT) %>% pull
 
-oakland_parcels_quarter_acre <-
+```
+
+```{r}
+parcel_list_quarter_acre <-
   oakland_parcels %>% 
   group_by(APN_SORT) %>% 
   slice(1) %>%  # 98,294
   filter(LotSize > 0) %>% # 97,474
   filter(LotSize > QUARTER_ACRE) %>% 
   select(APN_SORT, LotSize) %>% 
-  inner_join(parcels_geom_only)
+  select(APN_SORT) %>% pull
 
 ```
 
-```{r}
-parcel_list_half_acre <-
-  oakland_parcels_half_acre %>% select(APN_SORT) %>% pull
-
-parcel_list_quarter_acre <-
-  oakland_parcels_quarter_acre %>% select(APN_SORT) %>% pull
-```
-
-
+Finally, using our original shapefile data, let's plot the parcels whose APNs are in the list of parcels greater than half an acre in size.
 ```{r}
 leaflet(parcels_geom_only %>% filter(APN_SORT %in% parcel_list_half_acre)) %>% 
     addMapboxGL(
